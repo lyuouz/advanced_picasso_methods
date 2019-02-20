@@ -1,0 +1,21 @@
+---
+title: "Untitled"
+author: "Lyuou Zhang"
+date: "2/18/2019"
+output: html_document
+---
+
+```{r}
+
+library(tidyverse)
+```
+
+
+```{r}
+library(ggplot2)
+iris %>% 
+  ggplot(aes(x = Sepal.Width, y = Sepal.Length)) + geom_point()
+  
+  
+```
+
