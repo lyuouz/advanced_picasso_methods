@@ -1,0 +1,137 @@
+---
+title: "data_wrangling"
+author: "Lyuou Zhang"
+date: "2/14/2019"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(rnoaa)
+library(rvest)
+library(httr)
+library(jsonlite)
+library(lubridate)
+```
+
+Downloading NOAA data
+
+```{r}
+# Get a list of all NY station IDs
+stations <- ghcnd_stations()
+nystationids <-  stations %>% 
+  filter(state == "NY") %>% 
+  distinct(id)
+
+# Pull the desired weather data for all of these stations
+nydat <- meteo_pull_monitors(nystationids$id, 
+                             date_min = "2007-01-01", 
+                             date_max = "2017-12-31", 
+                             var = c("PRCP", "SNOW", "SNWD", "TMAX", "TMIN"))
+
+```
+
+NOAA data
+
+```{r}
+ny_county <- stations %>% 
+  filter(state == "NY") %>% 
+  select(id:name, -state) %>% 
+  group_by(id, latitude, longitude, elevation, name) %>% 
+  summarize()
+
+```
+
+After matched with the county boundary, join with the NOAA data to link id to county names
+
+```{r}
+# import the ny county file joined with the county names from QGIS
+ny_county_name <- read_csv('./data/ny_county_name.csv') %>% 
+  janitor::clean_names() %>% 
+  select(-field_1) %>% 
+  rename(county = name_1)
+ 
+
+# join with nydata
+nydata <- nydat %>% 
+  mutate(
+    date = ymd(date)
+  ) %>% 
+  left_join(., ny_county_name, by = 'id') %>% 
+  mutate(
+    tmax = tmax/10,
+    tmin = tmin/10
+  )
+ 
+```
+
+Plots on the general trends of temperature
+
+```{r}
+# overall change in tmax and tmin
+nydata %>% 
+  filter(!is.na(tmax) & !is.na(tmin)) %>% 
+  group_by(date) %>% 
+  summarize(
+    avg_tmax = mean(tmax),
+    avg_tmin = mean(tmin)
+  ) %>%
+  gather(key = temp_type, value = temp, avg_tmax:avg_tmin) %>%
+  ggplot(aes(x = date, y = temp, color = temp_type)) + geom_line() +
+  labs(
+    title = "Maximum and minimum temperature trends in New York State, 2007-2017",
+    x = "Date",
+    y = "Maximum or minimum temperature",
+    caption = "Data from the rnoaa package"
+  ) + scale_color_hue(name = "Temperature Type", 
+                  labels = c('Maximum', 'Minimum'))
+
+```
+
+This plot shows the trends of maximum and minimum temperature by each date over time in the New York State. 
+
+
+```{r test,eval = FALSE}
+
+nydat_sub <- nydat %>% 
+  filter(!is.na(tmax) & !is.na(tmin)) %>% 
+  filter(date >= '2010-10-01' & date <= '2010-10-31') %>% 
+  group_by(id) %>% 
+  filter(id == 'USC00300183')
+
+# 1. take the range of each day -> monthly average
+nydat_sub <- nydat_sub %>% 
+  mutate(diff = tmax - tmin)
+mean(nydat_sub$diff)
+# 119.9032
+
+# 2. take the monthly mean of tmax and tmin and get the difference
+mean(nydat_sub$tmax) - mean(nydat_sub$tmin)
+# 119.9032
+
+# 3. SD of the monthly average 
+nydat_sub <- nydat_sub %>% 
+  mutate(avg_temp = (tmax + tmin)/2)
+sd(nydat_sub$avg_temp)
+# 35.09231
+
+```
+
+reading data from the web
+
+```{r}
+race <- read_delim('./data/Natality, 2007-2017 (2).txt', delim = '\t') %>% 
+  janitor::clean_names() %>% 
+  filter(is.na(notes)) %>% 
+  select(county:average_oe_gestational_age)
+
+
+```
+
+
+
+
+
+
+
+
