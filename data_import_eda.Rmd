@@ -223,11 +223,11 @@ nydata %>%
   ) %>% 
   left_join(., ptb_tobacco, by = 'county_ym') %>% 
   filter(tobacco_use == 'Yes' | tobacco_use == 'No') %>% 
-  ggplot(aes(x = mean_temp, y = average_lmp_gestational_age, color = tobacco_use)) + geom_point(alpha = 0.8) + geom_smooth() +
+  ggplot(aes(x = mean_temp, y = average_oe_gestational_age, color = tobacco_use)) + geom_point(alpha = 0.8) + geom_smooth() +
   labs(
-    title = "The distribution of average LMP gestational age by temperature, stratified by tobacco use status",
+    title = "The distribution of average OE gestational age by temperature, stratified by tobacco use status",
     x = "Daily temperature (C)",
-    y = "Average LMP gestational age",
+    y = "Average OE gestational age",
     caption = "Data from the rnoaa package & CDC Wonder database"
   ) +
   scale_color_hue(name = "Tobacco use")
