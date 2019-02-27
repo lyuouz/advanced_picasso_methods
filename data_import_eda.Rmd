@@ -5,6 +5,8 @@ date: "2/14/2019"
 output: github_document
 ---
 
+# Final Project: Data import and exploratory analysis
+
 ```{r setup, include=FALSE}
 library(tidyverse)
 library(rnoaa)
@@ -12,9 +14,12 @@ library(rvest)
 library(httr)
 library(jsonlite)
 library(lubridate)
+library(ggridges)
 ```
 
-Downloading NOAA data
+## Data import
+
+Pull the NOAA data from the API and extract data in New York State
 
 ```{r}
 # Get a list of all NY station IDs
@@ -31,7 +36,7 @@ nydat <- meteo_pull_monitors(nystationids$id,
 
 ```
 
-NOAA data
+Note that this dataset does not have the county names. To find the county for each station, we used the latitude and longitude of each station and spatially join with the NYS county shapefile in GIS to get the county names.
 
 ```{r}
 ny_county <- stations %>% 
@@ -42,7 +47,7 @@ ny_county <- stations %>%
 
 ```
 
-After matched with the county boundary, join with the NOAA data to link id to county names
+After the spatial join, join back to the NOAA data
 
 ```{r}
 # import the ny county file joined with the county names from QGIS
@@ -52,7 +57,7 @@ ny_county_name <- read_csv('./data/ny_county_name.csv') %>%
   rename(county = name_1)
  
 
-# join with nydata
+# join with nydata, and convert the temperature to degree celsius.
 nydata <- nydat %>% 
   mutate(
     date = ymd(date)
@@ -65,7 +70,25 @@ nydata <- nydat %>%
  
 ```
 
-Plots on the general trends of temperature
+Import preterm births data
+
+
+```{r}
+ptb_tobacco <- read_delim('./data/Natality, 2007-2017 (3).txt', delim = '\t') %>% 
+  janitor::clean_names() %>% 
+  filter(is.na(notes)) %>% 
+  select(-notes) %>% 
+  mutate(
+    county = str_replace(county, ' County, NY', ''),
+    county_ym = str_c(county, year, month_code, sep = '-')
+  )
+
+```
+
+
+## Exploratory data analysis 
+
+### The overall trends of daily temperature across the state, 2007-2017
 
 ```{r}
 # overall change in tmax and tmin
@@ -88,47 +111,128 @@ nydata %>%
 
 ```
 
-This plot shows the trends of maximum and minimum temperature by each date over time in the New York State. 
+This plot shows the trends of maximum and minimum temperature by each date over time in the New York State. The red lines are the maximum temperatures, and the green lines are the minimum temperatures.
 
-
-```{r test,eval = FALSE}
-
-nydat_sub <- nydat %>% 
-  filter(!is.na(tmax) & !is.na(tmin)) %>% 
-  filter(date >= '2010-10-01' & date <= '2010-10-31') %>% 
-  group_by(id) %>% 
-  filter(id == 'USC00300183')
-
-# 1. take the range of each day -> monthly average
-nydat_sub <- nydat_sub %>% 
-  mutate(diff = tmax - tmin)
-mean(nydat_sub$diff)
-# 119.9032
-
-# 2. take the monthly mean of tmax and tmin and get the difference
-mean(nydat_sub$tmax) - mean(nydat_sub$tmin)
-# 119.9032
-
-# 3. SD of the monthly average 
-nydat_sub <- nydat_sub %>% 
-  mutate(avg_temp = (tmax + tmin)/2)
-sd(nydat_sub$avg_temp)
-# 35.09231
-
-```
-
-reading data from the web
+### The average year temperature by county
 
 ```{r}
-race <- read_delim('./data/Natality, 2007-2017 (2).txt', delim = '\t') %>% 
+nydata %>% 
+  filter(!is.na(tmax) & !is.na(tmin)) %>% 
+  mutate(
+    year = year(date),
+    month = month(date),
+    avg_temp = (tmax + tmin)/2
+  ) %>% 
+  group_by(year, county) %>% 
+  summarize(
+    avg_temp_year = mean(avg_temp)
+  ) %>% 
+  ggplot(aes(x = year, y = avg_temp_year, color = county)) + geom_line() +
+  labs(
+    title = "The average year temperature by county, New York State, 2007-2017",
+    x = "Year",
+    y = "Average temperature",
+    caption = "Data from the rnoaa package"
+  ) +
+  scale_x_continuous(labels = c("2007-6", "2010-1", '2012-6', "2015-1", '2017-6'))
+
+```
+
+The distribution of average LMP gestational age by tobacco use status
+
+```{r}
+ptb_tobacco %>%
+  ggplot(aes(x = average_lmp_gestational_age, fill = tobacco_use, color = tobacco_use)) + geom_density(alpha = 0.5)
+    
+```
+
+The distribution of average birthweight by tobacco status
+
+```{r}
+
+ptb_tobacco %>%
+  ggplot(aes(x = average_birth_weight, fill = tobacco_use, color = tobacco_use)) + geom_density(alpha = 0.5)
+    
+```
+
+How does gestational age change as temperature changes?
+
+import total birth data
+
+```{r}
+birth <- read_delim('./data/Natality, 2007-2017_all.txt', delim = '\t') %>% 
   janitor::clean_names() %>% 
   filter(is.na(notes)) %>% 
-  select(county:average_oe_gestational_age)
+  select(-notes) %>% 
+  mutate(county = str_replace(county, ' County, NY', '')) %>% 
+  mutate(
+    county_ym = str_c(county, year, month_code, sep = '-')
+  )
 
+```
+
+plot temperature vs. birth
+
+```{r}
+
+nydata %>% 
+  filter(!is.na(tmax) & !is.na(tmin)) %>% 
+  mutate(
+    avg_temp = (tmax + tmin)/2
+  ) %>% 
+  mutate(
+    year = year(date),
+    month = month(date)) %>% 
+  group_by(county, year, month) %>% 
+  summarize(
+    mean_temp = mean(avg_temp)
+  ) %>% 
+  mutate(
+    county_ym = str_c(county, year, month, sep = '-')
+  ) %>% 
+  left_join(., birth, by = 'county_ym') %>% 
+  ggplot(aes(x = mean_temp, y = average_birth_weight)) + geom_point() + geom_smooth() +
+  labs(
+    title = "The distribution of average LMP gestational age by temperature",
+    x = "Daily temperature (C)",
+    y = "Average LMP gestational age",
+    caption = "Data from the rnoaa package & CDC Wonder database"
+  ) +
+  scale_color_hue(name = "Tobacco use")
 
 ```
 
 
+Modified by tobacco use?
+
+```{r}
+nydata %>% 
+  filter(!is.na(tmax) & !is.na(tmin)) %>% 
+  mutate(
+    avg_temp = (tmax + tmin)/2
+  ) %>% 
+  mutate(
+    year = year(date),
+    month = month(date)) %>% 
+  group_by(county, year, month) %>% 
+  summarize(
+    mean_temp = mean(avg_temp)
+  ) %>% 
+  mutate(
+    county_ym = str_c(county, year, month, sep = '-')
+  ) %>% 
+  left_join(., ptb_tobacco, by = 'county_ym') %>% 
+  filter(tobacco_use == 'Yes' | tobacco_use == 'No') %>% 
+  ggplot(aes(x = mean_temp, y = average_lmp_gestational_age, color = tobacco_use)) + geom_point(alpha = 0.8) + geom_smooth() +
+  labs(
+    title = "The distribution of average LMP gestational age by temperature, stratified by tobacco use status",
+    x = "Daily temperature (C)",
+    y = "Average LMP gestational age",
+    caption = "Data from the rnoaa package & CDC Wonder database"
+  ) +
+  scale_color_hue(name = "Tobacco use")
+
+```
 
 
 
