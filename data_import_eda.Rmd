@@ -15,6 +15,7 @@ library(httr)
 library(jsonlite)
 library(lubridate)
 library(ggridges)
+library(sf)
 ```
 
 ## Data import
@@ -33,7 +34,6 @@ nydat <- meteo_pull_monitors(nystationids$id,
                              date_min = "2007-01-01", 
                              date_max = "2017-12-31", 
                              var = c("PRCP", "SNOW", "SNWD", "TMAX", "TMIN"))
-
 ```
 
 Note that this dataset does not have the county names. To find the county for each station, we used the latitude and longitude of each station and spatially join with the NYS county shapefile in GIS to get the county names.
@@ -41,9 +41,8 @@ Note that this dataset does not have the county names. To find the county for ea
 ```{r}
 ny_county <- stations %>% 
   filter(state == "NY") %>% 
-  select(id:name, -state) %>% 
-  group_by(id, latitude, longitude, elevation, name) %>% 
-  summarize()
+  dplyr::select(id:name, -state) %>% 
+  .[!duplicated(.[c('id', 'latitude', 'longitude', 'elevation', 'name')]),]
 
 ```
 
@@ -53,7 +52,7 @@ After the spatial join, join back to the NOAA data
 # import the ny county file joined with the county names from QGIS
 ny_county_name <- read_csv('./data/ny_county_name.csv') %>% 
   janitor::clean_names() %>% 
-  select(-field_1) %>% 
+  dplyr::select(-field_1) %>% 
   rename(county = name_1)
  
 
@@ -71,17 +70,14 @@ nydata <- nydat %>%
 ```
 
 Import preterm births data
-
+Births data
 
 ```{r}
-ptb_tobacco <- read_delim('./data/Natality, 2007-2017 (3).txt', delim = '\t') %>% 
+births <- read_delim('./data/NYS_0717_groupby_CYM_OEGestWeekly.txt', delim = '\t') %>% 
   janitor::clean_names() %>% 
   filter(is.na(notes)) %>% 
-  select(-notes) %>% 
-  mutate(
-    county = str_replace(county, ' County, NY', ''),
-    county_ym = str_c(county, year, month_code, sep = '-')
-  )
+  filter(county_code != '36999') %>% 
+  select(-notes)
 
 ```
 
@@ -163,7 +159,7 @@ import total birth data
 birth <- read_delim('./data/Natality, 2007-2017_all.txt', delim = '\t') %>% 
   janitor::clean_names() %>% 
   filter(is.na(notes)) %>% 
-  select(-notes) %>% 
+  dplyr::select(-notes) %>% 
   mutate(county = str_replace(county, ' County, NY', '')) %>% 
   mutate(
     county_ym = str_c(county, year, month_code, sep = '-')
@@ -235,6 +231,18 @@ nydata %>%
 ```
 
 
+```{r}
+nys <- st_read(dsn = '/Users/zhanglvou/Desktop/GoMailman/Fall_2018/GIS/Lab 1 - Acquiring and Making Population Data Spatial/cb_2013_us_county_500k', layer = 'nys')
+
+test <- births %>% 
+  rename(GEOID = county_code) %>% 
+  mutate(GEOID = as.factor(GEOID)) %>% 
+  filter(year == 2007, month_code == 7) %>% 
+  right_join(., nys, by = 'GEOID') %>% 
+  st_as_sf(.)
+
+
+```
 
 
 

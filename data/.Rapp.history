@@ -1,0 +1,2 @@
+load("/Users/zhanglvou/Desktop/GoMailman/spring_2019/advance_analytical_methods/Final_project/data/dragons.rdata")
+View(dragons)
