@@ -2,7 +2,7 @@
 title: "Data Import and Cleaning"
 author: "Lyuou Zhang"
 date: "3/27/2019"
-output: github_document
+output: html_document
 ---
 
 ```{r setup, include=FALSE}
@@ -23,9 +23,7 @@ library(sf)
 I pulled all the stations in NY and used their IDs to pull all the data at these stations. `stations` is the dataset with all NY stations. `nydat` is the dataset that has the NY weather data
 
 ```{r}
-# Get a list of all NY station IDs
-stations <- ghcnd_stations()
-nystationids <-  stations %>% 
+nystationids <- ghcnd_stations() %>% 
   filter(state == "NY") %>% 
   distinct(id)
 
