@@ -44,6 +44,8 @@ ny_county <- stations %>%
 
 ```
 
+### Step 2: Join station IDs with counties, and with NOAA data
+
 Some work behind the scene in QGIS...
 
 After we figured out the county of each weather station, joined that back to the NOAA data in `nydat`

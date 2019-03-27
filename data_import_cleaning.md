@@ -35,6 +35,8 @@ ny_county <- stations %>%
   .[!duplicated(.[c('id', 'latitude', 'longitude', 'elevation', 'name')]),]
 ```
 
+### Step 2: Join station IDs with counties, and with NOAA data
+
 Some work behind the scene in QGIS…
 
 After we figured out the county of each weather station, joined that
