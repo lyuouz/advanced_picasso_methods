@@ -2,7 +2,7 @@
 title: "Data Import and Cleaning"
 author: "Lyuou Zhang"
 date: "3/27/2019"
-output: html_document
+output: github_document
 ---
 
 ```{r setup, include=FALSE}
@@ -22,7 +22,7 @@ library(sf)
 
 I pulled all the stations in NY and used their IDs to pull all the data at these stations. `stations` is the dataset with all NY stations. `nydat` is the dataset that has the NY weather data
 
-```{r}
+```{r eval = FALSE}
 nystationids <- ghcnd_stations() %>% 
   filter(state == "NY") %>% 
   distinct(id)
@@ -36,7 +36,7 @@ nydat <- meteo_pull_monitors(nystationids$id,
 
 Note that this dataset does not have the county names. To find the county for each station, we used the latitude and longitude of each station and spatially join with the NYS county shapefile in GIS to get the county names.
 
-```{r}
+```{r eval = FALSE}
 ny_county <- stations %>% 
   filter(state == "NY") %>% 
   dplyr::select(id:name, -state) %>% 
@@ -48,7 +48,7 @@ Some work behind the scene in QGIS...
 
 After we figured out the county of each weather station, joined that back to the NOAA data in `nydat`
 
-```{r}
+```{r eval = FALSE}
 # import the ny county file joined with the county names from QGIS
 ny_county_name <- read_csv('./data/ny_county_name.csv') %>% 
   janitor::clean_names() %>% 
