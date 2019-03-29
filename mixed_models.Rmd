@@ -1,0 +1,24 @@
+---
+title: "Mixed Models"
+author: "Lyuou Zhang"
+date: "3/28/2019"
+output: github_document
+---
+
+```{r setup, include = FALSE}
+library(tidyverse)
+library(readr)
+library(dplyr) 
+library(lme4)
+library(ICC) 
+
+```
+
+
+
+```{r}
+
+
+
+```
+

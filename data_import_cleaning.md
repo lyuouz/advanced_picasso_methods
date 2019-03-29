@@ -65,6 +65,30 @@ nydata <- nydat %>%
 Yayyy\! So the final NOAA data will be `nydata`. Be sure to **remove all
 the `NA` values** before you use it.
 
+### Step 3: Get monthly aggregated data
+
+We actually need the variability of monthly temperature, so `nydata`
+needs further processing
+
+``` r
+nydata_month <- nydata %>% 
+  filter(!is.na(tmax) & !is.na(tmin)) %>% 
+  mutate(
+    avg_temp = (tmax + tmin)/2,
+    year = year(date),
+    month = month(date)
+  ) %>% 
+  group_by(county, year, month) %>% 
+  summarize(
+    temp = mean(avg_temp),
+    sd_temp = sd(avg_temp)
+  )
+
+write.csv(nydata_month, './data/nydata_month.csv')
+```
+
+The final monthly temperature data is in `nydata_month.csv`.
+
 ## Birth data
 
 This one is a lot
