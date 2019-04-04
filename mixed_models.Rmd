@@ -7,7 +7,6 @@ output: github_document
 
 ```{r setup, include = FALSE}
 library(tidyverse)
-library(readr)
 library(dplyr) 
 library(lme4)
 library(ICC) 
@@ -95,12 +94,54 @@ The ICC shows that there is much variability within subjects.
 
 ## Mixed model
 
+Before doing the model, I need to join all data into a dataset called `model_data`
+
+```{r}
+model_data <- births %>% 
+  left_join(., nydata_month, by = c('county', 'year_code' = 'year', 'month_code' = 'month')) %>%
+  left_join(., ses, by = c('county_code' = 'geoid'))
+
+```
+
+In this study, the subjects are county, so I would like the random intercept vary by county  
+
+Should we assume N is offset in the data? I will check the population change 2007-2010
 
 
 ```{r}
+model_fit <- glmer(preterm ~ sd_temp + without_hs + college + med_income + (1|county_code), data = model_data, family = 'poisson')
+
+fit_results <- summary(model_fit)$coefficients
+
+fit_results %>% 
+  as_tibble() %>% 
+  janitor::clean_names() %>% 
+  knitr::kable()
+```
+
+R suggests that I should scale the variables because some of them are on very different scales. 
 
 
+```{r}
+model_scale <- model_data %>% 
+  mutate(
+    sd_temp = scale(sd_temp),
+    without_hs = scale(without_hs),
+    college = scale(college),
+    med_income = scale(med_income)
+  )
 
+```
+
+and run the model with the scaled variables again:
+
+```{r}
+scale_fit <- glmer(preterm ~ sd_temp + without_hs + college + med_income + (1|county_code), data = model_scale, family = 'poisson')
+
+summary(scale_fit)$coefficients %>% 
+  as_tibble() %>% 
+  janitor::clean_names() %>% 
+  knitr::kable()
 ```
 
 

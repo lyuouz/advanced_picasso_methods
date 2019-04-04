@@ -120,8 +120,11 @@ This part includes **education**, **household income** and **population** data i
 *  I also created two new variables:  
     *  `without_hs` is the percent of population without a high school degree  
     *  `college` is the percent of population with bachelors degree or higher
+    
+Here I wrote a function to read education data 2007-2017 and bind them together. I also add the year after the variables so that we know which year that is.
 
 ```{r}
+
 education <- read_csv('./data/ACS_17_5YR_S1501_education/ACS_17_5YR_S1501_with_ann.csv') %>% 
   janitor::clean_names() %>% 
   dplyr::select(id2, contains('25_years_and_over'), -contains('total'), -contains('margin_of_error'), -contains('male')) %>% 
@@ -141,6 +144,7 @@ education <- read_csv('./data/ACS_17_5YR_S1501_education/ACS_17_5YR_S1501_with_a
     college = bachelors + graduate_or_professional,
     geoid = as.character(geoid)
   )
+
 
 ```
 

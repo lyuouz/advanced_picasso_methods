@@ -25,10 +25,10 @@ nydata_month <- read_csv('./data/nydata_month.csv') %>%
 
     ## Parsed with column specification:
     ## cols(
-    ##   X1 = col_integer(),
+    ##   X1 = col_double(),
     ##   county = col_character(),
-    ##   year = col_integer(),
-    ##   month = col_integer(),
+    ##   year = col_double(),
+    ##   month = col_double(),
     ##   temp = col_double(),
     ##   sd_temp = col_double()
     ## )
@@ -59,16 +59,16 @@ births <- read_csv('./data/birth_2007_2010.csv') %>%
 
     ## Parsed with column specification:
     ## cols(
-    ##   X1 = col_integer(),
+    ##   X1 = col_double(),
     ##   county = col_character(),
-    ##   county_code = col_integer(),
-    ##   year = col_integer(),
-    ##   year_code = col_integer(),
+    ##   county_code = col_double(),
+    ##   year = col_double(),
+    ##   year_code = col_double(),
     ##   month = col_character(),
-    ##   month_code = col_integer(),
+    ##   month_code = col_double(),
     ##   oe_gestational_age_weekly = col_character(),
-    ##   oe_gestational_age_weekly_code = col_integer(),
-    ##   births = col_integer(),
+    ##   oe_gestational_age_weekly_code = col_double(),
+    ##   births = col_double(),
     ##   average_birth_weight = col_double()
     ## )
 
@@ -93,8 +93,8 @@ ses <- read_csv('./data/ses.csv') %>%
 
     ## Parsed with column specification:
     ## cols(
-    ##   X1 = col_integer(),
-    ##   geoid = col_integer(),
+    ##   X1 = col_double(),
+    ##   geoid = col_double(),
     ##   less_than_9 = col_double(),
     ##   grade_9_12 = col_double(),
     ##   high_school = col_double(),
@@ -104,8 +104,8 @@ ses <- read_csv('./data/ses.csv') %>%
     ##   graduate_or_professional = col_double(),
     ##   without_hs = col_double(),
     ##   college = col_double(),
-    ##   med_income = col_integer(),
-    ##   pop = col_integer()
+    ##   med_income = col_double(),
+    ##   pop = col_double()
     ## )
 
 ## Between and within subject variablity
@@ -149,3 +149,88 @@ icc_temp <- births %>%
 
   - ICC for Y: (0.5220499, 0.76557)
   - ICC for X: (0.051872, 0.1450301)
+
+The ICC shows that there is much variability within subjects.
+
+## Mixed model
+
+Before doing the model, I need to join all data into a dataset called
+`model_data`
+
+``` r
+model_data <- births %>% 
+  left_join(., nydata_month, by = c('county', 'year_code' = 'year', 'month_code' = 'month')) %>%
+  left_join(., ses, by = c('county_code' = 'geoid'))
+```
+
+In this study, the subjects are county, so I would like the random
+intercept vary by county
+
+Should we assume N is offset in the data? I will check the population
+change
+2007-2010
+
+``` r
+model_fit <- glmer(preterm ~ sd_temp + without_hs + college + med_income + (1|county_code), data = model_data, family = 'poisson')
+```
+
+    ## Warning: Some predictor variables are on very different scales: consider
+    ## rescaling
+
+    ## Warning in checkConv(attr(opt, "derivs"), opt$par, ctrl =
+    ## control$checkConv, : Model failed to converge with max|grad| = 0.0163432
+    ## (tol = 0.001, component 1)
+
+    ## Warning in checkConv(attr(opt, "derivs"), opt$par, ctrl = control$checkConv, : Model is nearly unidentifiable: very large eigenvalue
+    ##  - Rescale variables?;Model is nearly unidentifiable: large eigenvalue ratio
+    ##  - Rescale variables?
+
+``` r
+fit_results <- summary(model_fit)$coefficients
+
+fit_results %>% 
+  as_tibble() %>% 
+  janitor::clean_names() %>% 
+  knitr::kable()
+```
+
+|    estimate | std\_error |    z\_value |     pr\_z |
+| ----------: | ---------: | ----------: | --------: |
+| \-4.4361814 |  1.3924644 | \-3.1858489 | 0.0014433 |
+| \-0.0105443 |  0.0020134 | \-5.2371099 | 0.0000002 |
+|   0.3044595 |  0.0545568 |   5.5805985 | 0.0000000 |
+|   0.0135102 |  0.0309770 |   0.4361353 | 0.6627385 |
+|   0.0000613 |  0.0000197 |   3.1169891 | 0.0018271 |
+
+R suggests that I should scale the variables because some of them are on
+very different scales.
+
+``` r
+model_scale <- model_data %>% 
+  mutate(
+    sd_temp = scale(sd_temp),
+    without_hs = scale(without_hs),
+    college = scale(college),
+    med_income = scale(med_income)
+  )
+```
+
+and run the model with the scaled variables
+again:
+
+``` r
+scale_fit <- glmer(preterm ~ sd_temp + without_hs + college + med_income + (1|county_code), data = model_scale, family = 'poisson')
+
+summary(scale_fit)$coefficients %>% 
+  as_tibble() %>% 
+  janitor::clean_names() %>% 
+  knitr::kable()
+```
+
+|    estimate | std\_error |    z\_value |     pr\_z |
+| ----------: | ---------: | ----------: | --------: |
+|   3.3456308 |  0.2427645 |  13.7813837 | 0.0000000 |
+| \-0.0127713 |  0.0024386 | \-5.2371271 | 0.0000002 |
+|   1.3671867 |  0.2441622 |   5.5995010 | 0.0000000 |
+|   0.1278594 |  0.2934896 |   0.4356523 | 0.6630890 |
+|   1.0051726 |  0.3228088 |   3.1138329 | 0.0018467 |
