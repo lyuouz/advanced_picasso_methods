@@ -87,8 +87,8 @@ icc_temp <- births %>%
 
 ```
 
-*  ICC for Y: (`r icc_birth$LowerCI`, `r icc_birth$UpperCI`)
-*  ICC for X: (`r icc_temp$LowerCI`, `r icc_temp$UpperCI`)
+*  ICC for Y: `r icc_birth$ICC`, (`r icc_birth$LowerCI`, `r icc_birth$UpperCI`)
+*  ICC for X: `r icc_temp$ICC`, (`r icc_temp$LowerCI`, `r icc_temp$UpperCI`)
 
 The ICC shows that there is much variability within subjects. 
 
@@ -99,7 +99,8 @@ Before doing the model, I need to join all data into a dataset called `model_dat
 ```{r}
 model_data <- births %>% 
   left_join(., nydata_month, by = c('county', 'year_code' = 'year', 'month_code' = 'month')) %>%
-  left_join(., ses, by = c('county_code' = 'geoid'))
+  left_join(., ses, by = c('county_code' = 'geoid')) %>% 
+  mutate(total_births = preterm + non_preterm)
 
 ```
 

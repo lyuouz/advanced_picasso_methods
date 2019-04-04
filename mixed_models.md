@@ -147,8 +147,8 @@ icc_temp <- births %>%
     ## Warning in ICCest(county_code, sd_temp, data = .): Missing levels of 'x'
     ## have been removed
 
-  - ICC for Y: (0.5220499, 0.76557)
-  - ICC for X: (0.051872, 0.1450301)
+  - ICC for Y: 0.6372247, (0.5220499, 0.76557)
+  - ICC for X: 0.0817184, (0.051872, 0.1450301)
 
 The ICC shows that there is much variability within subjects.
 
@@ -160,7 +160,8 @@ Before doing the model, I need to join all data into a dataset called
 ``` r
 model_data <- births %>% 
   left_join(., nydata_month, by = c('county', 'year_code' = 'year', 'month_code' = 'month')) %>%
-  left_join(., ses, by = c('county_code' = 'geoid'))
+  left_join(., ses, by = c('county_code' = 'geoid')) %>% 
+  mutate(total_births = preterm + non_preterm)
 ```
 
 In this study, the subjects are county, so I would like the random

@@ -7,8 +7,9 @@ output: html_document
 
 ```{r setup, include=FALSE}
 library(tidyverse)
-library(lubridate)
-library(stringr)
+library(quantreg)
+library(ggplot2)
+
 ```
 
 ## Data import
@@ -31,7 +32,11 @@ birth_data <- read_delim('./data/NYS_0717_groupby_CYM_OEGestWeekly.txt', delim =
 # nyc_temp$tmin <- nyc_temp$tmin/10
 
 # Tempearture
-ny_temp <- read.csv("./data/nydata_month.csv")
+ny_temp <- read.csv("./data/nydata_month.csv") %>% 
+  janitor::clean_names() %>%
+  select(-x) %>%
+  mutate(year = as.character(year)) %>%
+  unite("county_ym", county, year, month, sep = "-")
 ny_temp$county <- tolower(ny_temp$county)
 
 # Covariates
@@ -44,6 +49,10 @@ county_names <- county_names[c(2,3)]
 covars <- merge(ses, county_names, by = "geoid")
 colnames(covars)[colnames(covars)=="county_name"] <- "county"
 covars$county <- tolower(covars$county)
+
+# Other miscellaneous cleaning
+trim.trailing <- function (x) sub("\\s+$", "", x)
+covars$county <- trim.trailing(covars$county)
 
 ```
 
@@ -82,7 +91,7 @@ tot_count <- tot_count %>%
   separate(county_ym, c("county", "year", "month"), sep = "-", remove = FALSE)
 tot_count$county <- tolower(tot_count$county)
 
-birth_covar <- merge(tot_count, covars, by = "county", all.x = TRUE)
+#birth_covar <- merge(tot_count, covars, by = "county", all.x = TRUE)
 ### Does not work
 
 ## Births (Average Gestational Age in Weeks)
@@ -95,14 +104,12 @@ ges_age_data <- ges_age %>% group_by(county_ym) %>%
   separate(county_ym, c("county", "year", "month"), sep = "-", remove = FALSE) # Clean identifying variables
 ges_age_data$county <- tolower(ges_age_data$county) # Make all lowercase
 
-ges_covars <- merge(ges_age_data, covars, by = "county", all.x = TRUE)
-# test <- ges_age_data %>% 
-#   mutate(without_hs = ifelse(county == covars$county, covars$without_hs, NA)) %>% 
-#   mutate(college = ifelse(county == covars$county, covars$college, NA)) %>% 
-#   mutate(med_income = ifelse(county == covars$county, covars$med_income, NA)) %>% 
-#   mutate(pop = ifelse(county == covars$county, covars$pop, NA))
-  
-plot(density(ges_age_data$avg_ges_age)) # Exploratory plot (two nodes)
+ges_covars <- merge(ges_age_data, covars, by = "county", all.x = TRUE) # Merged with covariates
+
+ny_merged <- merge(ges_covars, ny_temp, by = "county_ym", all.x = TRUE) %>% 
+  select(-X)
+
+# plot(density(ges_age_data$avg_ges_age)) # Exploratory plot (two nodes)
 
 ```
 
@@ -110,14 +117,60 @@ plot(density(ges_age_data$avg_ges_age)) # Exploratory plot (two nodes)
 ## Data analysis
 
 ```{r data analysis}
-reg50th <- rq( ~ sd_temp + COVARIATES , 
-            data = final_data, 
-            tau= 0.5) # Normal linear regression
-reg20th <- rq( ~ sd_temp + COVARIATES, 
-            data = final_data, 
-            tau= 0.2) 
+quantile(ny_merged$avg_ges_age, c(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)) # Understand how the data look (the values of interest)
 
+##
 
+TauList <- seq(0.1, 0.9, by = 0.1)
+TauList
 
+qr.models  <- rq(avg_ges_age ~ sd_temp + without_hs + college + med_income + pop,
+                 data = ny_merged, 
+                 tau = TauList)
+
+# Assemble estimates from each model
+
+summary.qr.models <- summary(qr.models, alpha = 0.05)
+
+Model10th   <- c(summary.qr.models[[1]]$coefficients[2,1:2])
+Model20th   <- c(summary.qr.models[[2]]$coefficients[2,1:2])
+Model30th   <- c(summary.qr.models[[3]]$coefficients[2,1:2])
+Model40th   <- c(summary.qr.models[[4]]$coefficients[2,1:2])
+Model50th   <- c(summary.qr.models[[5]]$coefficients[2,1:2])
+Model60th   <- c(summary.qr.models[[6]]$coefficients[2,1:2])
+Model70th   <- c(summary.qr.models[[7]]$coefficients[2,1:2])
+Model80th   <- c(summary.qr.models[[8]]$coefficients[2,1:2])
+Model90th   <- c(summary.qr.models[[9]]$coefficients[2,1:2])
+
+# Create dataframe 
+
+coeff.table <- rbind(Model10th, Model20th, Model30th, Model40th, Model50th, Model60th, Model70th, Model80th, Model90th)
+
+coeff.table <- as.data.frame(coeff.table, stringsAsFactors = FALSE)
+coeff.table$LCI <- coeff.table$Value - coeff.table$`Std. Error`*1.96
+coeff.table$UCI <- coeff.table$Value + coeff.table$`Std. Error`*1.96
+
+# Set names for dataframe
+
+names(coeff.table) <- c("coeff", "sterror", "lci", "uci")
+coeff.table        <- coeff.table %>% 
+          mutate(ModelName = c("10th", "20th", "30th", "40th",
+                               "50th", "60th", "70th", "80th", 
+                               "90th"))
+
+# Plot
+
+fp.qr.models <- ggplot(data=coeff.table, # defines what dataset we are using
+                  aes(x=ModelName,  # defines variable for the x axis
+                      y=coeff,      # defines the variable for the point along the y axis
+                      ymin=lci,     # defines the lower bound of the confidence interval
+                      ymax=uci)) +  # define the upper bound of the confidence interval   
+  geom_pointrange() +               # creates a point (y) with line defined by ymin and ymax        
+  geom_errorbar()+                  # creates lines with bars
+  geom_hline(aes(yintercept=0.0), lty=2) + # add a dashed line at y=0 
+  xlab("Quantile of Interest") +              # labels for axes
+  ylab(expression("Average Gestational Age (95% CI)"))
+
+fp.qr.models
 ```
 
