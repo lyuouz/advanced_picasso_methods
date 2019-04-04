@@ -112,10 +112,8 @@ Should we assume N is offset in the data? I will check the population change 200
 ```{r}
 model_fit <- glmer(preterm ~ sd_temp + without_hs + college + med_income + (1|county_code), data = model_data, family = 'poisson')
 
-fit_results <- summary(model_fit)$coefficients
-
-fit_results %>% 
-  as_tibble() %>% 
+summary(model_fit)$coefficients %>% 
+  as_tibble(rownames = 'term') %>% 
   janitor::clean_names() %>% 
   knitr::kable()
 ```
@@ -140,7 +138,7 @@ and run the model with the scaled variables again:
 scale_fit <- glmer(preterm ~ sd_temp + without_hs + college + med_income + (1|county_code), data = model_scale, family = 'poisson')
 
 summary(scale_fit)$coefficients %>% 
-  as_tibble() %>% 
+  as_tibble(rownames = 'term') %>% 
   janitor::clean_names() %>% 
   knitr::kable()
 ```

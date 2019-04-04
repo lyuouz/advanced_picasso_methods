@@ -187,21 +187,19 @@ model_fit <- glmer(preterm ~ sd_temp + without_hs + college + med_income + (1|co
     ##  - Rescale variables?
 
 ``` r
-fit_results <- summary(model_fit)$coefficients
-
-fit_results %>% 
-  as_tibble() %>% 
+summary(model_fit)$coefficients %>% 
+  as_tibble(rownames = 'term') %>% 
   janitor::clean_names() %>% 
   knitr::kable()
 ```
 
-|    estimate | std\_error |    z\_value |     pr\_z |
-| ----------: | ---------: | ----------: | --------: |
-| \-4.4361814 |  1.3924644 | \-3.1858489 | 0.0014433 |
-| \-0.0105443 |  0.0020134 | \-5.2371099 | 0.0000002 |
-|   0.3044595 |  0.0545568 |   5.5805985 | 0.0000000 |
-|   0.0135102 |  0.0309770 |   0.4361353 | 0.6627385 |
-|   0.0000613 |  0.0000197 |   3.1169891 | 0.0018271 |
+| term        |    estimate | std\_error |    z\_value |     pr\_z |
+| :---------- | ----------: | ---------: | ----------: | --------: |
+| (Intercept) | \-4.4361814 |  1.3924644 | \-3.1858489 | 0.0014433 |
+| sd\_temp    | \-0.0105443 |  0.0020134 | \-5.2371099 | 0.0000002 |
+| without\_hs |   0.3044595 |  0.0545568 |   5.5805985 | 0.0000000 |
+| college     |   0.0135102 |  0.0309770 |   0.4361353 | 0.6627385 |
+| med\_income |   0.0000613 |  0.0000197 |   3.1169891 | 0.0018271 |
 
 R suggests that I should scale the variables because some of them are on
 very different scales.
@@ -223,15 +221,15 @@ again:
 scale_fit <- glmer(preterm ~ sd_temp + without_hs + college + med_income + (1|county_code), data = model_scale, family = 'poisson')
 
 summary(scale_fit)$coefficients %>% 
-  as_tibble() %>% 
+  as_tibble(rownames = 'term') %>% 
   janitor::clean_names() %>% 
   knitr::kable()
 ```
 
-|    estimate | std\_error |    z\_value |     pr\_z |
-| ----------: | ---------: | ----------: | --------: |
-|   3.3456308 |  0.2427645 |  13.7813837 | 0.0000000 |
-| \-0.0127713 |  0.0024386 | \-5.2371271 | 0.0000002 |
-|   1.3671867 |  0.2441622 |   5.5995010 | 0.0000000 |
-|   0.1278594 |  0.2934896 |   0.4356523 | 0.6630890 |
-|   1.0051726 |  0.3228088 |   3.1138329 | 0.0018467 |
+| term        |    estimate | std\_error |    z\_value |     pr\_z |
+| :---------- | ----------: | ---------: | ----------: | --------: |
+| (Intercept) |   3.3456308 |  0.2427645 |  13.7813837 | 0.0000000 |
+| sd\_temp    | \-0.0127713 |  0.0024386 | \-5.2371271 | 0.0000002 |
+| without\_hs |   1.3671867 |  0.2441622 |   5.5995010 | 0.0000000 |
+| college     |   0.1278594 |  0.2934896 |   0.4356523 | 0.6630890 |
+| med\_income |   1.0051726 |  0.3228088 |   3.1138329 | 0.0018467 |
