@@ -1,0 +1,123 @@
+---
+title: "quantile_reg"
+author: "Erin Kawazu"
+date: "3/25/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(lubridate)
+library(stringr)
+```
+
+## Data import
+
+```{r data importing}
+# Birth
+birth_data <- read_delim('./data/NYS_0717_groupby_CYM_OEGestWeekly.txt', delim = '\t') %>% 
+  janitor::clean_names() %>%
+  filter(is.na(notes)) %>%
+  select(-notes) %>%
+  mutate(
+    county = str_replace(county, ' County, NY', ''),
+    county_ym = str_c(county, year, month_code, sep = '-')
+  )
+
+# OLD NEW YORK WEATHER DATA
+# nyc_temp_raw <- read.csv("./data/ny_temp_data.csv")
+# nyc_temp <- nyc_temp_raw[!is.na(nyc_temp_raw["tmax"]),]
+# nyc_temp$tmax <- nyc_temp$tmax/10
+# nyc_temp$tmin <- nyc_temp$tmin/10
+
+# Tempearture
+ny_temp <- read.csv("./data/nydata_month.csv")
+ny_temp$county <- tolower(ny_temp$county)
+
+# Covariates
+ses <- read.csv("./data/ses.csv")
+county_names <- read.csv("./data/ny_counties.csv")
+
+county_names$geoid <- county_names$X...fips
+county_names <- county_names[c(2,3)]
+
+covars <- merge(ses, county_names, by = "geoid")
+colnames(covars)[colnames(covars)=="county_name"] <- "county"
+covars$county <- tolower(covars$county)
+
+```
+
+## Data cleaning and processing
+
+```{r data cleaning and processing}
+## Births (Categorical Count Data)
+birth_count <- birth_data
+
+birth_count$extreme_preterm <- ifelse(birth_count$oe_gestational_age_weekly_code < 28, birth_count$births, 0)
+birth_count$v_preterm <- ifelse(birth_count$oe_gestational_age_weekly_code < 32 & birth_count$oe_gestational_age_weekly_code > 28, birth_count$births, 0)
+birth_count$preterm <- ifelse(birth_count$oe_gestational_age_weekly_code < 37 & birth_count$oe_gestational_age_weekly_code > 32, birth_count$births, 0)
+birth_count$normal <- ifelse(birth_count$oe_gestational_age_weekly_code >= 37, birth_count$births, 0)
+
+county_births <- birth_count %>% 
+  select(county_ym) %>% 
+  unique()
+
+extreme <- birth_count %>% group_by(county_ym) %>%
+  summarize(t_extreme_preterm = sum(extreme_preterm)) 
+very_p <- birth_count %>% group_by(county_ym) %>%
+  summarize(t_v_preterm = sum(v_preterm))
+preterm <- birth_count %>% group_by(county_ym) %>%
+  summarize(t_preterm = sum(preterm))
+normal <- birth_count %>% group_by(county_ym) %>%
+  summarize(t_normal = sum(normal))
+
+tot_count <- merge(county_births, extreme, by = "county_ym") %>% 
+  merge(very_p, by = "county_ym") %>% 
+  merge(preterm, by = "county_ym") %>% 
+  merge(normal, by = "county_ym")
+
+rm(extreme, very_p, preterm, normal) # Clean up
+
+tot_count <- tot_count %>%
+  separate(county_ym, c("county", "year", "month"), sep = "-", remove = FALSE)
+tot_count$county <- tolower(tot_count$county)
+
+birth_covar <- merge(tot_count, covars, by = "county", all.x = TRUE)
+### Does not work
+
+## Births (Average Gestational Age in Weeks)
+ges_age <- birth_data
+ges_age <- ges_age %>% 
+  mutate(tot = oe_gestational_age_weekly_code*births)
+
+ges_age_data <- ges_age %>% group_by(county_ym) %>%
+  summarize(avg_ges_age = sum(tot)/sum(births)) %>%
+  separate(county_ym, c("county", "year", "month"), sep = "-", remove = FALSE) # Clean identifying variables
+ges_age_data$county <- tolower(ges_age_data$county) # Make all lowercase
+
+ges_covars <- merge(ges_age_data, covars, by = "county", all.x = TRUE)
+# test <- ges_age_data %>% 
+#   mutate(without_hs = ifelse(county == covars$county, covars$without_hs, NA)) %>% 
+#   mutate(college = ifelse(county == covars$county, covars$college, NA)) %>% 
+#   mutate(med_income = ifelse(county == covars$county, covars$med_income, NA)) %>% 
+#   mutate(pop = ifelse(county == covars$county, covars$pop, NA))
+  
+plot(density(ges_age_data$avg_ges_age)) # Exploratory plot (two nodes)
+
+```
+
+
+## Data analysis
+
+```{r data analysis}
+reg50th <- rq( ~ sd_temp + COVARIATES , 
+            data = final_data, 
+            tau= 0.5) # Normal linear regression
+reg20th <- rq( ~ sd_temp + COVARIATES, 
+            data = final_data, 
+            tau= 0.2) 
+
+
+
+```
+

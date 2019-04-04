@@ -78,7 +78,7 @@ Yayyy! So the final NOAA data will be `nydata`. Be sure to **remove all the `NA`
 
 We actually need the variability of monthly temperature, so `nydata` needs further processing
 
-```{r}
+```{r eval = FALSE}
 nydata_month <- nydata %>% 
   filter(!is.na(tmax) & !is.na(tmin)) %>% 
   mutate(

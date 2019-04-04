@@ -165,6 +165,7 @@ birth <- read_delim('./data/Natality, 2007-2017_all.txt', delim = '\t') %>%
     county_ym = str_c(county, year, month_code, sep = '-')
   )
 
+write.csv(birth, './data/total_births.csv')
 ```
 
 plot temperature vs. birth
